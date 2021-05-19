@@ -82,10 +82,9 @@ IB_DESIGNABLE
 
 /**
  *  Text for labels that will be show near every dot.
- *  The text must be an instance of `NSString` or `NSAttributedString`.
- *  Note: If `labels` array are not empty, then `maxCount` will be equal to `labels.count`.
+ *  Note: If `labels` array not empty set `maxCount` to labels count.
  */
-@property (nonatomic, strong) NSArray *labels;
+@property (nonatomic, strong) NSArray <NSString *> *labels;
 
 /**
  *  Font of dot labels.
@@ -113,12 +112,6 @@ IB_DESIGNABLE
  *  Otherwise label position is same as trackCircle, and aligment always is center.
  */
 @property (nonatomic) IBInspectable BOOL adjustLabel;
-
-/**
- *  Generate haptic feedback when value was changed. Ignored if low power mode is turned on.
- *  Default value is `false`.
- */
-@property (nonatomic) IBInspectable BOOL enableHapticFeedback;
 
 
 /**

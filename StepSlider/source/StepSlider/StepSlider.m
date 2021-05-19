@@ -35,8 +35,6 @@ void withoutCAAnimation(withoutAnimationBlock code)
     NSMutableArray <CAShapeLayer *> *_trackCirclesArray;
     NSMutableArray <CATextLayer *> *_trackLabelsArray;
     NSMutableDictionary <NSNumber *, UIImage *> *_trackCircleImages;
-
-    UIImpactFeedbackGenerator* _selectFeedback;
     
     BOOL animateLayouts;
     
@@ -55,11 +53,19 @@ void withoutCAAnimation(withoutAnimationBlock code)
 
 #pragma mark - Init
 
+- (instancetype)init
+{
+    self = [super init];
+    if (self) {
+        [self generalSetup];
+    }
+    return self;
+}
+
 - (instancetype)initWithFrame:(CGRect)frame
 {
     self = [super initWithFrame:frame];
     if (self) {
-        _index = 2;
         [self generalSetup];
     }
     return self;
@@ -69,7 +75,7 @@ void withoutCAAnimation(withoutAnimationBlock code)
 {
     self = [super initWithCoder:aDecoder];
     if (self) {
-        [self generalSetup];
+        [self addLayers];
     }
     return self;
 }
@@ -84,7 +90,6 @@ void withoutCAAnimation(withoutAnimationBlock code)
     _trackLayer = [CAShapeLayer layer];
     _sliderCircleLayer = [CAShapeLayer layer];
     _sliderCircleLayer.contentsScale = [UIScreen mainScreen].scale;
-    _sliderCircleLayer.actions = @{@"contents": [NSNull null]};
 
     [self.layer addSublayer:_sliderCircleLayer];
     [self.layer addSublayer:_trackLayer];
@@ -97,32 +102,17 @@ void withoutCAAnimation(withoutAnimationBlock code)
 {
     [self addLayers];
     
-    if (_maxCount == 0) {
-        _maxCount = 4;
-    }
-    if (_trackHeight == 0.f) {
-        _trackHeight = 4.f;
-    }
-    if (_trackCircleRadius == 0.f) {
-        _trackCircleRadius = 5.f;
-    }
-    if (_sliderCircleRadius == 0.f) {
-        _sliderCircleRadius = 12.5f;
-    }
-    if (_labelOffset == 0.f) {
-        _labelOffset = 20.f;
-    }
-    if (!_trackColor) {
-        _trackColor = [UIColor colorWithWhite:0.41f alpha:1.f];
-    }
-    if (!_sliderCircleColor) {
-        _sliderCircleColor = [UIColor whiteColor];
-    }
-    if (!_labelColor) {
-        _labelColor = [UIColor whiteColor];
-    }
-
+    _maxCount           = 4;
+    _index              = 2;
+    _trackHeight        = 4.f;
+    _trackCircleRadius  = 5.f;
+    _sliderCircleRadius = 12.5f;
+    _trackColor         = [UIColor colorWithWhite:0.41f alpha:1.f];
+    _sliderCircleColor  = [UIColor whiteColor];
+    _labelOffset        = 20.f;
+    _labelColor         = [UIColor whiteColor];
     [self updateMaxRadius];
+    
     [self setNeedsLayout];
 }
 
@@ -149,7 +139,7 @@ void withoutCAAnimation(withoutAnimationBlock code)
     
     CGFloat sliderHeight = fmaxf(maxRadius, self.trackHeight / 2.f) * 2.f;
     CGFloat labelsHeight = [self labelHeightWithMaxWidth:stepWidth] + self.labelOffset;
-    CGFloat totalHeight  = sliderHeight + labelsHeight;
+    CGFloat totalHeight  = self.bounds.size.height ;//sliderHeight + labelsHeight;
     
     contentSize = CGSizeMake(fmaxf(44.f, self.bounds.size.width), fmaxf(44.f, totalHeight));
     if (!CGSizeEqualToSize(self.bounds.size, contentSize)) {
@@ -174,8 +164,7 @@ void withoutCAAnimation(withoutAnimationBlock code)
     CGFloat sliderDiameter  = self.sliderCircleRadius * 2.f;
     
     CGPoint oldPosition = _sliderCircleLayer.position;
-    CAShapeLayer * trackLayerCopy = [NSKeyedUnarchiver unarchiveObjectWithData:[NSKeyedArchiver archivedDataWithRootObject:_trackLayer]];
-    CGPathRef oldPath   = trackLayerCopy.path;
+    CGPathRef oldPath   = _trackLayer.path;
     
     CGFloat labelsY     = self.labelOrientation ? (self.bounds.size.height - totalHeight) / 2.f : (CGRectGetMaxY(contentFrame) + self.labelOffset);
     
@@ -184,17 +173,16 @@ void withoutCAAnimation(withoutAnimationBlock code)
         [CATransaction setValue:(id)kCFBooleanTrue forKey:kCATransactionDisableActions];
     }
 
-
+    _sliderCircleLayer.path     = NULL;
+ 
     if (self.sliderCircleImage) {
-        _sliderCircleLayer.path     = NULL;
-        _sliderCircleLayer.frame    = CGRectMake(0.f, 0.f, fmaxf(self.sliderCircleImage.size.width, 44.f), fmaxf(self.sliderCircleImage.size.height, 44.f));
+        _sliderCircleLayer.frame    = CGRectMake(0.f, 0.f, fmaxf(self.sliderCircleRadius * 2.f, 12.f), fmaxf(self.sliderCircleRadius * 2.f, 12.f));
         _sliderCircleLayer.contents = (__bridge id)self.sliderCircleImage.CGImage;
-        _sliderCircleLayer.contentsGravity = kCAGravityCenter;
+        _sliderCircleLayer.contentsGravity = kCAGravityResizeAspect;
     } else {
         CGFloat sliderFrameSide = fmaxf(self.sliderCircleRadius * 2.f, 44.f);
         CGRect  sliderDrawRect  = CGRectMake((sliderFrameSide - sliderDiameter) / 2.f, (sliderFrameSide - sliderDiameter) / 2.f, sliderDiameter, sliderDiameter);
         
-        _sliderCircleLayer.contents  = nil;
         _sliderCircleLayer.frame     = CGRectMake(0.f, 0.f, sliderFrameSide, sliderFrameSide);
         _sliderCircleLayer.path      = [UIBezierPath bezierPathWithRoundedRect:sliderDrawRect cornerRadius:sliderFrameSide / 2].CGPath;
         _sliderCircleLayer.fillColor = [self.sliderCircleColor CGColor];
@@ -250,8 +238,6 @@ void withoutCAAnimation(withoutAnimationBlock code)
             trackCircle = _trackCirclesArray[i];
         } else {
             trackCircle = [CAShapeLayer layer];
-            trackCircle.actions = @{@"fillColor": [NSNull null],
-                                    @"contents": [NSNull null]};
             
             [self.layer addSublayer:trackCircle];
             
@@ -278,15 +264,31 @@ void withoutCAAnimation(withoutAnimationBlock code)
                 CGImageRef oldImage = (__bridge CGImageRef)(trackCircle.contents);
                 
                 if (oldImage != trackCircleImage) {
-                    [self animateTrackCircleChanges:trackCircle from:(__bridge id)(oldImage) to:(__bridge id)(trackCircleImage) keyPath:@"contents" beginTime:animationTime duration:circleAnimation];
+                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(animationTime * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                        trackCircle.contents = (__bridge id _Nullable)(trackCircleImage);
+                        
+                        CABasicAnimation *basicTrackCircleAnimation = [CABasicAnimation animationWithKeyPath:kTrackAnimation];
+                        basicTrackCircleAnimation.duration = [CATransaction animationDuration] * circleAnimation;
+                        basicTrackCircleAnimation.fromValue = (__bridge id _Nullable)(oldImage);
+                        [trackCircle addAnimation:basicTrackCircleAnimation forKey:kTrackAnimation];
+                    });
+                    
                     animationTime += animationTimeDiff;
                 }
             } else {
                 CGColorRef newColor = [self trackCircleColor:trackCircle];
                 CGColorRef oldColor = trackCircle.fillColor;
-
-                if (!CGColorEqualToColor(newColor, oldColor)) {
-                    [self animateTrackCircleChanges:trackCircle from:(__bridge id)(oldColor) to:(__bridge id)(newColor) keyPath:@"fillColor" beginTime:animationTime duration:circleAnimation];
+                
+                if (!CGColorEqualToColor(newColor, trackCircle.fillColor)) {
+                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(animationTime * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                        trackCircle.fillColor = newColor;
+                        
+                        CABasicAnimation *basicTrackCircleAnimation = [CABasicAnimation animationWithKeyPath:kTrackAnimation];
+                        basicTrackCircleAnimation.duration = [CATransaction animationDuration] * circleAnimation;
+                        basicTrackCircleAnimation.fromValue = (__bridge id _Nullable)(oldColor);
+                        [trackCircle addAnimation:basicTrackCircleAnimation forKey:kTrackAnimation];
+                    });
+                    
                     animationTime += animationTimeDiff;
                 }
             }
@@ -318,20 +320,6 @@ void withoutCAAnimation(withoutAnimationBlock code)
 
 #pragma mark - Helpers
 
-- (void)animateTrackCircleChanges:(CAShapeLayer *)trackCircle from:(id)fromValue to:(id)toValue keyPath:(NSString *)keyPath beginTime:(CFTimeInterval)beginTime duration:(CFTimeInterval)duration
-{
-    CABasicAnimation *basicTrackCircleAnimation = [CABasicAnimation animationWithKeyPath:kTrackAnimation];
-    basicTrackCircleAnimation.fillMode  = kCAFillModeBackwards;
-    basicTrackCircleAnimation.beginTime = CACurrentMediaTime() + beginTime;
-    basicTrackCircleAnimation.duration  = [CATransaction animationDuration] * duration;
-    basicTrackCircleAnimation.keyPath   = keyPath;
-    basicTrackCircleAnimation.fromValue = fromValue;
-    basicTrackCircleAnimation.toValue   = toValue;
-
-    [trackCircle addAnimation:basicTrackCircleAnimation forKey:kTrackAnimation];
-    [trackCircle setValue:basicTrackCircleAnimation.toValue forKey:basicTrackCircleAnimation.keyPath];
-}
-
 - (NSMutableArray *)clearExcessLayers:(NSMutableArray *)layers
 {
     if (layers.count > self.maxCount) {
@@ -358,19 +346,11 @@ void withoutCAAnimation(withoutAnimationBlock code)
             } else {
                 size = CGSizeMake([self roundForTextDrawing:maxWidth], CGFLOAT_MAX);
             }
-
-            CGFloat height;
-
-            if ([self.labels[i] isKindOfClass:[NSString class]]) {
-                height = [self.labels[i] boundingRectWithSize:size
-                                                      options:NSStringDrawingUsesLineFragmentOrigin
-                                                   attributes:@{NSFontAttributeName : self.labelFont}
-                                                      context:nil].size.height;
-            } else {
-                height = [self.labels[i] boundingRectWithSize:size
-                                                      options:NSStringDrawingUsesLineFragmentOrigin
-                                                      context:nil].size.height;
-            }
+            
+            CGFloat height = [self.labels[i] boundingRectWithSize:size
+                                                          options:NSStringDrawingUsesLineFragmentOrigin
+                                                       attributes:@{NSFontAttributeName : self.labelFont}
+                                                          context:nil].size.height;
             labelHeight = fmax(ceil(height), labelHeight);
         }
         return labelHeight;
@@ -454,26 +434,11 @@ void withoutCAAnimation(withoutAnimationBlock code)
 
 #pragma mark - Touches
 
-- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer
-{
-    if (![gestureRecognizer isKindOfClass:[UIPanGestureRecognizer class]]) {
-        return NO;
-    } else {
-        CGPoint position = [gestureRecognizer locationInView:self];
-        return !CGRectContainsPoint(self.bounds, position);
-    }
-}
-
 - (BOOL)beginTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event
 {
     startTouchPosition = [touch locationInView:self];
     startSliderPosition = _sliderCircleLayer.position;
 
-    if (self.enableHapticFeedback && ![[NSProcessInfo processInfo] isLowPowerModeEnabled]) {
-        _selectFeedback = [[UIImpactFeedbackGenerator alloc] init];
-    }
-
-    [_selectFeedback prepare];
     if (CGRectContainsPoint(_sliderCircleLayer.frame, startTouchPosition)) {
         return YES;
     } else if (self.isDotsInteractionEnabled) {
@@ -490,8 +455,6 @@ void withoutCAAnimation(withoutAnimationBlock code)
                 
                 if (oldIndex != _index) {
                     [self sendActionsForControlEvents:UIControlEventValueChanged];
-                    [_selectFeedback impactOccurred];
-                    [_selectFeedback prepare];
                 }
                 animateLayouts = YES;
                 [self setNeedsLayout];
@@ -525,8 +488,6 @@ void withoutCAAnimation(withoutAnimationBlock code)
             }
             self->_index = index;
             [self sendActionsForControlEvents:UIControlEventValueChanged];
-            [self->_selectFeedback impactOccurred];
-            [self->_selectFeedback prepare];
         }
     });
     
@@ -554,7 +515,6 @@ void withoutCAAnimation(withoutAnimationBlock code)
     
     animateLayouts = YES;
     [self setNeedsLayout];
-    _selectFeedback = nil;
 }
 
 #pragma mark - Texts
@@ -630,38 +590,11 @@ void withoutCAAnimation(withoutAnimationBlock code)
     [self setNeedsLayout];
 }
 
-- (void)setLabels:(NSArray *)labels
+- (void)setLabels:(NSArray<NSString *> *)labels
 {
     NSAssert(labels.count != 1, @"Labels count can not be equal to 1!");
-
-    NSMutableArray *mLabels = [NSMutableArray arrayWithArray:labels];
-    for (NSUInteger i = 0; i < labels.count; i++) {
-        BOOL isAttributedString = [labels[i] isKindOfClass:[NSAttributedString class]];
-        NSAssert([labels[i] isKindOfClass:[NSString class]] || isAttributedString, @"Labels must be an instance of NSString or NSAttributedString!");
-
-        if (isAttributedString) {
-            NSMutableAttributedString *attributedString = [[NSMutableAttributedString alloc] initWithAttributedString: labels[i]];
-            NSRange fullRange = NSMakeRange(0, attributedString.length);
-
-            [attributedString enumerateAttribute:NSFontAttributeName inRange:fullRange options:0 usingBlock:^(id  _Nullable value, NSRange range, BOOL * _Nonnull stop) {
-
-                if (!value) {
-                    [attributedString addAttribute:NSFontAttributeName value:self.labelFont range:range];
-                }
-            }];
-            [attributedString enumerateAttribute:NSForegroundColorAttributeName inRange:fullRange options:0 usingBlock:^(id  _Nullable value, NSRange range, BOOL * _Nonnull stop) {
-
-                if (!value) {
-                    [attributedString addAttribute:NSForegroundColorAttributeName value:self.labelColor range:range];
-                }
-            }];
-
-            mLabels[i] = attributedString;
-        }
-    }
-
-    if (_labels != mLabels) {
-        _labels = mLabels;
+    if (_labels != labels) {
+        _labels = labels;
         
         if (_labels.count > 0) {
             _maxCount = _labels.count;
